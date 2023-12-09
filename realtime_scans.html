@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Checkin</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+
+    <style>
+        #scan-list {
+            display: flex;
+            flex-direction: column;
+        }
+
+        #scan-list pre {
+            border: 1px solid black;
+            padding: 5px;
+            margin: 20px 0;
+            flex: 1;
+            display: block;
+        }
+
+        #redirectButton {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <button id="redirectButton">View Scans</button>
+
+    <div id="scan-list">
+
+    </div>
+
+    <template id="scan-template">
+        <pre><code class="text"></code></pre>
+    </template>
+
+    <script type="module">
+        import PocketBase from 'https://unpkg.com/pocketbase@0.19.0/dist/pocketbase.es.mjs'
+
+        const pb = new PocketBase('https://h2949706.stratoserver.net');
+
+        const scanTemplate = document.getElementById('scan-template'),
+            scanList = document.getElementById('scan-list'),
+            redirectButton = document.getElementById('redirectButton');
+
+        pb.collection('scans').subscribe('*', function (e) {
+            const scan = scanTemplate.content.cloneNode(true);
+
+            scan.querySelector('.text').innerText = JSON.stringify(e.record, null, 2)
+
+            scanList.appendChild(scan);
+        });
+
+        redirectButton.addEventListener('click', function () {
+            window.location.href = 'view_scans.html';
+        });
+    </script>
+</body>
+</html>

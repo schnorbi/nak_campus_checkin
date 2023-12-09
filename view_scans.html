@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Checkin</title>
+
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css"
+    />
+
+    <style>
+      #scan-table {
+        margin-top: 20px;
+        border-collapse: collapse;
+        width: 100%;
+      }
+
+      #scan-table th,
+      #scan-table td {
+        border: 1px solid black;
+        padding: 8px;
+        text-align: left;
+      }
+
+      #redirectButton {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 2;
+      }
+
+      #input-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: baseline;
+      }
+
+      #input-form label {
+        min-width: 120px;
+        margin-right: 10px;
+      }
+
+      #input-form select {
+        width: 200px; /* Anpassen der Breite nach Bedarf */
+        box-sizing: border-box;
+      }
+
+      #input-form button {
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="redirectButton">Realtime Scans</button>
+
+    <!-- Form for input -->
+    <form id="input-form">
+      <label for="date">Datum:</label>
+      <input type="date" id="date">
+
+      <label for="startTime">Startuhrzeit:</label>
+      <input type="time" id="startTime" name="startTime">
+
+      <label for="endTime">Enduhrzeit:</label>
+      <input type="time" id="endTime" name="endTime">
+
+      <label for="sensorId">Sensor ID:</label>
+      <select id="sensorId" name="sensorId">
+        <!-- Optionen für das Dropdown-Menü -->
+        <option value="hello">hello</option>
+        <option value="world">world</option>
+        <option value="sensor3">Sensor 3</option>
+        <!-- Weitere Optionen nach Bedarf hinzufügen -->
+      </select>
+
+      <button id="submitButton">Submit</button>
+    </form>
+
+    <table id="scan-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Matrikelnummer</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody id="scan-list"></tbody>
+    </table>
+
+    <template id="scan-template">
+      <tr>
+        <td class="name"></td>
+        <td class="matr_nr"></td>
+        <td class="created"></td>
+      </tr>
+    </template>
+
+    <script type="module">
+      import PocketBase from "https://unpkg.com/pocketbase@0.19.0/dist/pocketbase.es.mjs";
+
+      const pb = new PocketBase("https://h2949706.stratoserver.net");
+
+      const scanTemplate = document.getElementById("scan-template"),
+        scanList = document.getElementById("scan-list"),
+        redirectButton = document.getElementById("redirectButton"),
+        submitButton = document.getElementById("submitButton");
+
+      async function fetchAndDisplayScans() {
+
+        const date = document.getElementById("date").value;
+        const startTime = document.getElementById("startTime").value;
+        const endTime = document.getElementById("endTime").value;
+        const sensorId = document.getElementById("sensorId").value;
+
+        console.log(document.getElementById("date").value);
+
+        try {
+          const records = await pb
+            .collection("card_scans")
+            .getFullList({ sort: "-created", filter: "created >= '${start}' && created <= '${end}' && sensor_id == '${sensor_id}'", });
+
+            console.log(records)
+
+          records.forEach((record) => {
+            const scan = scanTemplate.content.cloneNode(true);
+            scan.querySelector(".name").innerText = record.name;
+            scan.querySelector(".matr_nr").innerText = record.matr_nr;
+            scan.querySelector(".created").innerText = record.created;
+            scanList.appendChild(scan);
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      redirectButton.addEventListener("click", function () {
+        window.location.href = "realtime_scans.html";
+      });
+
+      submitButton.addEventListener("click", function(){
+        fetchAndDisplayScans();
+      })
+    </script>
+  </body>
+</html>
