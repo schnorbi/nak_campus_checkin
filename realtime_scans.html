@@ -1,62 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Checkin</title>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
-
-    <style>
-        #scan-list {
-            display: flex;
-            flex-direction: column;
-        }
-
-        #scan-list pre {
-            border: 1px solid black;
-            padding: 5px;
-            margin: 20px 0;
-            flex: 1;
-            display: block;
-        }
-
-        #redirectButton {
-            margin-bottom: 20px;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-    <button id="redirectButton">View Scans</button>
+    <header>
+        <h1>NAK Campus Checkin</h1>
+        <hr>
+        <nav>
+            <a href="view_scans.html">View Scans</a>
+            <span style="flex: auto;flex-grow: 1;"></span>
+            <a href="https://h2949706.stratoserver.net/_" target="_blank">Admin</a>
+        </nav>
+        <hr>
+    </header>
+
+    <div class="scan-item" style="text-align: center;">
+        <div class="spinner"></div>
+        <span>Waiting for scans...</span>
+    </div>
 
     <div id="scan-list">
-
     </div>
 
     <template id="scan-template">
-        <pre><code class="text"></code></pre>
+        <div class="scan-item">
+            <div class="scan-item-content">
+                <pre><code class="text"></code></pre>
+            </div>
+            <div class="scan-item-footer">
+                <span class="time"></span>
+            </div>
+        </div>
     </template>
+
+    <script src="https://unpkg.com/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/duration.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/relativeTime.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/party-js@latest/bundle/party.min.js"></script>
 
     <script type="module">
         import PocketBase from 'https://unpkg.com/pocketbase@0.19.0/dist/pocketbase.es.mjs'
 
         const pb = new PocketBase('https://h2949706.stratoserver.net');
 
+        // Import dayjs extensions
+        dayjs.extend(window.dayjs_plugin_duration)
+        dayjs.extend(window.dayjs_plugin_relativeTime)
+
         const scanTemplate = document.getElementById('scan-template'),
-            scanList = document.getElementById('scan-list'),
-            redirectButton = document.getElementById('redirectButton');
+            scanList = document.getElementById('scan-list')
 
         pb.collection('scans').subscribe('*', function (e) {
+            // We only care about creation events
+            if (e.action !== "create") return;
+            // Clone template
             const scan = scanTemplate.content.cloneNode(true);
 
-            scan.querySelector('.text').innerText = JSON.stringify(e.record, null, 2)
+            // Extract elements we will be working with
+            const scanItem = scan.querySelector('.scan-item'),
+                  scanItemTimestamp = scanItem.querySelector('.time')
 
-            scanList.appendChild(scan);
-        });
+            // Assign id
+            scanItem.id = e.record['id']
 
-        redirectButton.addEventListener('click', function () {
-            window.location.href = 'view_scans.html';
+            // Update text from event
+            scanItem.querySelector('.text').innerText = JSON.stringify(e.record, null, 2)
+
+            // Create time element updater
+            const timestampUpdater = () => {
+                scanItemTimestamp.innerText = dayjs(e.record['created']).fromNow();
+            }
+            setInterval(timestampUpdater, 1000);
+            timestampUpdater()
+
+            // Append item to the list
+            scanList.appendChild(scanItem);
+
+            // Play confetti animation
+            setTimeout(() => {
+                party.confetti(scanItem)
+            }, 100)
         });
     </script>
 </body>
+
 </html>

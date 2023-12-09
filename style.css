@@ -1,0 +1,65 @@
+header {
+    margin: 50px 0;
+}
+
+nav {
+    display: flex;
+    width: 100%;
+}
+
+nav a {
+    margin: 0 10px;
+}
+
+#scan-list {
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.scan-item {
+    padding: 5px;
+    margin: 20px 0;
+    flex: 1;
+    display: block;
+}
+
+.scan-item-footer {
+    text-align: right;
+    color: #acacac;
+}
+
+.spinner {
+    display: inline-block;
+    vertical-align: middle;
+    width: 40px;
+    height: 40px;
+    background-color: #fff;
+
+    border-radius: 100%;
+    -webkit-animation: sk-scaleout 1.0s infinite ease-in-out;
+    animation: sk-scaleout 1.0s infinite ease-in-out;
+}
+
+@-webkit-keyframes sk-scaleout {
+    0% {
+        -webkit-transform: scale(0)
+    }
+
+    100% {
+        -webkit-transform: scale(1.0);
+        opacity: 0;
+    }
+}
+
+@keyframes sk-scaleout {
+    0% {
+        -webkit-transform: scale(0);
+        transform: scale(0);
+    }
+
+    100% {
+        -webkit-transform: scale(1.0);
+        transform: scale(1.0);
+        opacity: 0;
+    }
+}
