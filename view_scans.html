@@ -11,6 +11,18 @@
     />
 
     <style>
+      header {
+          margin: 50px 0;
+      }
+
+      nav {
+          display: flex;
+          width: 100%;
+      }
+
+      nav a {
+          margin: 0 10px;
+      }
       #scan-table {
         margin-top: 20px;
         border-collapse: collapse;
@@ -24,17 +36,10 @@
         text-align: left;
       }
 
-      #redirectButton {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        z-index: 2;
-      }
-
       #input-form {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 5px;
         align-items: baseline;
       }
 
@@ -54,20 +59,32 @@
     </style>
   </head>
   <body>
-    <button id="redirectButton">Realtime Scans</button>
+    <header>
+      <h1>NAK Campus Checkin</h1>
+      <hr>
+      <nav>
+          <a href="realtime_scans.html">Realtime Scans</a>
+          <span style="flex: auto;flex-grow: 1;"></span>
+          <a href="https://h2949706.stratoserver.net/_" target="_blank">Admin</a>
+      </nav>
+      <hr>
+  </header>
 
     <!-- Form for input -->
     <form id="input-form">
-      <label for="date">Datum:</label>
+      <label for="date">Abfragedatum:</label>
       <input type="date" id="date">
 
-      <label for="startTime">Startuhrzeit:</label>
+      <label for="startTime">Abfragestart:</label>
       <input type="time" id="startTime" name="startTime">
 
-      <label for="endTime">Enduhrzeit:</label>
+      <label for="endTime">Abfrageende:</label>
       <input type="time" id="endTime" name="endTime">
 
-      <label for="sensorId">Sensor ID:</label>
+      <label for="endTime">Vorlesungsstart:</label>
+      <input type="time" id="lesson_start" name="lesson_start">
+
+      <label for="sensorId">Sensor-ID:</label>
       <select id="sensorId" name="sensorId">
         <!-- Optionen für das Dropdown-Menü -->
         <option value="hello">hello</option>
@@ -77,6 +94,7 @@
       </select>
 
       <button id="submitButton">Submit</button>
+
     </form>
 
     <table id="scan-table">
@@ -84,7 +102,8 @@
         <tr>
           <th>Name</th>
           <th>Matrikelnummer</th>
-          <th>Created</th>
+          <th>Checkin Time</th>
+          <th>Verspätung in Minuten</th>
         </tr>
       </thead>
       <tbody id="scan-list"></tbody>
@@ -94,7 +113,8 @@
       <tr>
         <td class="name"></td>
         <td class="matr_nr"></td>
-        <td class="created"></td>
+        <td class="checkin_time"></td>
+        <td class="lateness"></td>
       </tr>
     </template>
 
@@ -105,43 +125,37 @@
 
       const scanTemplate = document.getElementById("scan-template"),
         scanList = document.getElementById("scan-list"),
-        redirectButton = document.getElementById("redirectButton"),
         submitButton = document.getElementById("submitButton");
 
-      async function fetchAndDisplayScans() {
+      submitButton.addEventListener("click", async function(){
+        event.preventDefault();
+        scanList.innerHTML = '';
 
         const date = document.getElementById("date").value;
         const startTime = document.getElementById("startTime").value;
         const endTime = document.getElementById("endTime").value;
+        const lesson_start = document.getElementById("lesson_start").value;
         const sensorId = document.getElementById("sensorId").value;
 
-        console.log(document.getElementById("date").value);
-
         try {
-          const records = await pb
-            .collection("card_scans")
-            .getFullList({ sort: "-created", filter: "created >= '${start}' && created <= '${end}' && sensor_id == '${sensor_id}'", });
-
-            console.log(records)
-
-          records.forEach((record) => {
-            const scan = scanTemplate.content.cloneNode(true);
-            scan.querySelector(".name").innerText = record.name;
-            scan.querySelector(".matr_nr").innerText = record.matr_nr;
-            scan.querySelector(".created").innerText = record.created;
-            scanList.appendChild(scan);
-          });
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      redirectButton.addEventListener("click", function () {
-        window.location.href = "realtime_scans.html";
-      });
-
-      submitButton.addEventListener("click", function(){
-        fetchAndDisplayScans();
+            const records = await pb
+              .collection("card_scans")
+              .getFullList({ sort: "-created", filter: `created >= "${date} ${startTime}:00" && created <= "${date} ${endTime}:00" && sensor_id = "${sensorId}"`});
+  
+            records.forEach((record) => {
+              const scan = scanTemplate.content.cloneNode(true);
+              scan.querySelector(".name").innerText = record.name;
+              scan.querySelector(".matr_nr").innerText = record.matr_nr;
+              const create_time = record.created.split(' ')[1].substring(0, 5);
+              scan.querySelector(".checkin_time").innerText = create_time;
+              const lesson_start_in_minutes = parseInt(lesson_start.split(':')[0], 10) * 60 + parseInt(lesson_start.split(':')[1], 10);
+              const create_time_in_minutes = parseInt(create_time.split(':')[0], 10) * 60 + parseInt(create_time.split(':')[1], 10);
+              scan.querySelector(".lateness").innerText = create_time_in_minutes - lesson_start_in_minutes;
+              scanList.appendChild(scan);
+            });
+          } catch (e) {
+            console.error(e);
+          }
       })
     </script>
   </body>
