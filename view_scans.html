@@ -44,7 +44,7 @@
       }
 
       #input-form label {
-        min-width: 120px;
+        min-width: 115px;
         margin-right: 10px;
       }
 
@@ -84,13 +84,8 @@
       <label for="endTime">Vorlesungsstart:</label>
       <input type="time" id="lesson_start" name="lesson_start">
 
-      <label for="sensorId">Sensor-ID:</label>
-      <select id="sensorId" name="sensorId">
-        <!-- Optionen für das Dropdown-Menü -->
-        <option value="hello">hello</option>
-        <option value="world">world</option>
-        <option value="sensor3">Sensor 3</option>
-        <!-- Weitere Optionen nach Bedarf hinzufügen -->
+      <label for="raum">Raumnummer:</label>
+      <select id="raum" name="raum">
       </select>
 
       <button id="submitButton">Submit</button>
@@ -127,7 +122,7 @@
         scanList = document.getElementById("scan-list"),
         submitButton = document.getElementById("submitButton");
 
-      submitButton.addEventListener("click", async function(){
+      submitButton.addEventListener("click", async function(event){
         event.preventDefault();
         scanList.innerHTML = '';
 
@@ -135,12 +130,12 @@
         const startTime = document.getElementById("startTime").value;
         const endTime = document.getElementById("endTime").value;
         const lesson_start = document.getElementById("lesson_start").value;
-        const sensorId = document.getElementById("sensorId").value;
+        const raum = document.getElementById("raum").value;
 
         try {
             const records = await pb
               .collection("card_scans")
-              .getFullList({ sort: "-created", filter: `created >= "${date} ${startTime}:00" && created <= "${date} ${endTime}:00" && sensor_id = "${sensorId}"`});
+              .getFullList({ sort: "-created", filter: `created >= "${date} ${startTime}:00" && created <= "${date} ${endTime}:00" && raum = "${raum}"`});
   
             records.forEach((record) => {
               const scan = scanTemplate.content.cloneNode(true);
@@ -157,6 +152,14 @@
             console.error(e);
           }
       })
+      const records_scanner = await pb.collection('scanners').getFullList({fields: "raum"});
+      const dropdown = document.getElementById("raum");
+      records_scanner.forEach((record_scanner) => {
+        const option = document.createElement("option");
+        option.value = record_scanner.raum;
+        option.text = record_scanner.raum;
+        dropdown.appendChild(option);
+      });
     </script>
   </body>
 </html>
