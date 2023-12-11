@@ -54,7 +54,7 @@
           <th>Verspätung in Minuten</th>
         </tr>
       </thead>
-      <tbody id="scan-list"></tbody>
+      <tbody id="scan-table-list"></tbody>
     </table>
 
     <template id="scan-template">
@@ -78,7 +78,7 @@
       const pb = new PocketBase("https://h2949706.stratoserver.net");
 
       const scanTemplate = document.getElementById("scan-template"),
-        scanList = document.getElementById("scan-list"),
+        scanList = document.getElementById("scan-table-list"),
         submitButton = document.getElementById("submitButton");
 
       submitButton.addEventListener("click", async function(event){
