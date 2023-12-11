@@ -105,7 +105,7 @@
               const scan = scanTemplate.content.cloneNode(true);
               scan.querySelector(".name").innerText = record.name;
               scan.querySelector(".matr_nr").innerText = record.matr_nr;
-              const dayjs_checkin_time = dayjs(record.created);
+              const dayjs_checkin_time = dayjs(record.created).second(0);
               scan.querySelector(".checkin_time").innerText = dayjs_checkin_time.format('hh:mm');
               scan.querySelector(".lateness").innerText = dayjs_checkin_time.diff(dayjs_lesson_start, 'minute');
               scanList.appendChild(scan);
