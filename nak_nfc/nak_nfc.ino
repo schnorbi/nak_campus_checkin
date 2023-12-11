@@ -19,8 +19,8 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #define PB_MAKE_URL(path) (PB_HOST "" path)
 
 #ifndef STASSID
-#define STASSID "skynet"
-#define STAPSK "SKYNET#123#abc"
+#define STASSID "iPhone von Daniel"
+#define STAPSK "danielistcool"
 #endif
 
 const char* ssid = STASSID;
@@ -173,7 +173,8 @@ void loop() {
     display.print("Connecting WiFi...");
     display.display();
     // Try reconnecting to WiFi
-    return WiFi.begin(ssid, password);
+    WiFi.begin(ssid, password);
+    return;
   } else {
     display.print("WiFi connected!");
     display.display();
@@ -182,6 +183,8 @@ void loop() {
   // Waiting for next scan to submit
   display.println("\nWaiting for scan...");
   display.display();
+
+  delay(200);
 
   // Check for next scan in queue
   if (!scan_queue.isEmpty()) {
@@ -306,6 +309,19 @@ void playScanRegistered() {
 }
 // == Buzzer definition END
 
+void ensureWiFiConnectionWithVisual() {
+  for(uint8_t toggle = 0; WiFi.status() != WL_CONNECTED; toggle ^= 0x1) {
+    if(toggle) {
+      pixels.fill(pixels.Color(10,0,0));
+      pixels.show();
+    } else {
+      pixels.clear();
+      pixels.show();
+    }
+    delay(500);
+  }
+}
+
 void setup1() {
   // NOTE: Serial will be initialized by core0
   Serial.begin(115200);
@@ -340,7 +356,10 @@ void setup1() {
 
   Serial.println("Waiting for an ISO14443A card");
 
-  playNokiaMelody();
+  //playNokiaMelody();
+
+  // Waiting for WiFi connection
+  ensureWiFiConnectionWithVisual();
 }
 
 uint32_t crc32b(const char* str) {
@@ -389,6 +408,8 @@ uint8_t last_uid[7] = {0,0,0,0,0,0,0};
 unsigned long last_scan = 0;
 
 void loop1() {
+  ensureWiFiConnectionWithVisual();
+
   pixels.fill(pixels.Color(0, 0, 10));
   pixels.show();
 
