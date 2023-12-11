@@ -135,7 +135,7 @@
         try {
             const records = await pb
               .collection("card_scans")
-              .getFullList({ sort: "-created", filter: `created >= "${date} ${startTime}:00" && created <= "${date} ${endTime}:00" && raum = "${raum}"`});
+              .getFullList({filter: `created >= "${date} ${startTime}:00" && created <= "${date} ${endTime}:00" && raum = "${raum}"`});
   
             records.forEach((record) => {
               const scan = scanTemplate.content.cloneNode(true);
