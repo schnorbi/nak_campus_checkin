@@ -63,3 +63,37 @@ nav a {
         opacity: 0;
     }
 }
+
+#scan-table {
+    margin-top: 20px;
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  #scan-table th,
+  #scan-table td {
+    border: 1px solid black;
+    padding: 8px;
+    text-align: left;
+  }
+
+  #input-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: baseline;
+  }
+
+  #input-form label {
+    min-width: 115px;
+    margin-right: 10px;
+  }
+
+  #input-form select {
+    width: 200px; /* Anpassen der Breite nach Bedarf */
+    box-sizing: border-box;
+  }
+
+  #input-form button {
+    margin-top: 10px;
+  }

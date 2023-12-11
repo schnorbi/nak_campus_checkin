@@ -9,54 +9,7 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css"
     />
-
-    <style>
-      header {
-          margin: 50px 0;
-      }
-
-      nav {
-          display: flex;
-          width: 100%;
-      }
-
-      nav a {
-          margin: 0 10px;
-      }
-      #scan-table {
-        margin-top: 20px;
-        border-collapse: collapse;
-        width: 100%;
-      }
-
-      #scan-table th,
-      #scan-table td {
-        border: 1px solid black;
-        padding: 8px;
-        text-align: left;
-      }
-
-      #input-form {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 5px;
-        align-items: baseline;
-      }
-
-      #input-form label {
-        min-width: 115px;
-        margin-right: 10px;
-      }
-
-      #input-form select {
-        width: 200px; /* Anpassen der Breite nach Bedarf */
-        box-sizing: border-box;
-      }
-
-      #input-form button {
-        margin-top: 10px;
-      }
-    </style>
+    <link rel="stylesheet" href="style.css">
   </head>
   <body>
     <header>
@@ -113,9 +66,15 @@
       </tr>
     </template>
 
+    <script src="https://unpkg.com/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/utc.js"></script>
+
     <script type="module">
       import PocketBase from "https://unpkg.com/pocketbase@0.19.0/dist/pocketbase.es.mjs";
 
+      // Import dayjs extensions
+      dayjs.extend(window.dayjs_plugin_utc);
+      
       const pb = new PocketBase("https://h2949706.stratoserver.net");
 
       const scanTemplate = document.getElementById("scan-template"),
@@ -126,40 +85,49 @@
         event.preventDefault();
         scanList.innerHTML = '';
 
-        const date = document.getElementById("date").value;
-        const startTime = document.getElementById("startTime").value;
-        const endTime = document.getElementById("endTime").value;
-        const lesson_start = document.getElementById("lesson_start").value;
-        const raum = document.getElementById("raum").value;
+        const form_date = document.getElementById("date").value;
+        const form_startTime = document.getElementById("startTime").value;
+        const form_endTime = document.getElementById("endTime").value;
+        const form_lesson_start = document.getElementById("lesson_start").value;
+        const form_raum = document.getElementById("raum").value;
+
+       const dayjs_startTime = dayjs(`${form_date} ${form_startTime}`).utc().format('YYYY-MM-DD hh:mm:00');
+       const dayjs_endTime = dayjs(`${form_date} ${form_endTime}`).utc().format('YYYY-MM-DD hh:mm:00');
+       const dayjs_lesson_start = dayjs(`${form_date} ${form_lesson_start}`);
+
 
         try {
             const records = await pb
               .collection("card_scans")
-              .getFullList({filter: `created >= "${date} ${startTime}:00" && created <= "${date} ${endTime}:00" && raum = "${raum}"`});
+              .getFullList({filter: `created >= "${dayjs_startTime}" && created <= "${dayjs_endTime}" && raum = "${form_raum}"`});
   
             records.forEach((record) => {
               const scan = scanTemplate.content.cloneNode(true);
               scan.querySelector(".name").innerText = record.name;
               scan.querySelector(".matr_nr").innerText = record.matr_nr;
-              const create_time = record.created.split(' ')[1].substring(0, 5);
-              scan.querySelector(".checkin_time").innerText = create_time;
-              const lesson_start_in_minutes = parseInt(lesson_start.split(':')[0], 10) * 60 + parseInt(lesson_start.split(':')[1], 10);
-              const create_time_in_minutes = parseInt(create_time.split(':')[0], 10) * 60 + parseInt(create_time.split(':')[1], 10);
-              scan.querySelector(".lateness").innerText = create_time_in_minutes - lesson_start_in_minutes;
+              const dayjs_checkin_time = dayjs(record.created);
+              scan.querySelector(".checkin_time").innerText = dayjs_checkin_time.format('hh:mm');
+              scan.querySelector(".lateness").innerText = dayjs_checkin_time.diff(dayjs_lesson_start, 'minute');
               scanList.appendChild(scan);
             });
           } catch (e) {
             console.error(e);
           }
       })
-      const records_scanner = await pb.collection('scanners').getFullList({fields: "raum"});
-      const dropdown = document.getElementById("raum");
-      records_scanner.forEach((record_scanner) => {
-        const option = document.createElement("option");
-        option.value = record_scanner.raum;
-        option.text = record_scanner.raum;
-        dropdown.appendChild(option);
-      });
+
+      try {
+          const records_scanner = await pb.collection('scanners').getFullList({fields: "raum"});
+          const dropdown = document.getElementById("raum");
+          records_scanner.forEach((record_scanner) => {
+            const option = document.createElement("option");
+            option.value = record_scanner.raum;
+            option.text = record_scanner.raum;
+            dropdown.appendChild(option);
+          });
+      } catch (e){
+        console.error(e);
+      }
+      
     </script>
   </body>
 </html>
