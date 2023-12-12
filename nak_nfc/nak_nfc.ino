@@ -4,20 +4,22 @@
 
 #include <ArduinoJson.h>
 
-// == Big hack to fix a really stupid implementation from others
-#define CONCATE_(X, Y) X##Y
-#define CONCATE(X, Y) CONCATE_(X, Y)
+// == Debug helpers START
+// Comment out to disable debug
+#define CUSTOM_DEBUG
 
-#define ALLOW_ACCESS(CLASS, MEMBER, ...) \
-  template<typename Only, __VA_ARGS__ CLASS::*Member> \
-  struct CONCATE(MEMBER, __LINE__) { friend __VA_ARGS__ CLASS::*Access(Only*) { return Member; } }; \
-  template<typename> struct Only_##MEMBER; \
-  template<> struct Only_##MEMBER<CLASS> { friend __VA_ARGS__ CLASS::*Access(Only_##MEMBER<CLASS>*); }; \
-  template struct CONCATE(MEMBER, __LINE__)<Only_##MEMBER<CLASS>, &CLASS::MEMBER>
-
-#define ACCESS(OBJECT, MEMBER) \     
- (OBJECT).*Access((Only_##MEMBER<std::remove_reference<decltype(OBJECT)>::type>*)nullptr)
-// ==
+#ifdef CUSTOM_DEBUG
+#define DPRINT(...) Serial.print(__VA_ARGS__)
+#define DPRINTLN(...) Serial.println(__VA_ARGS__)
+#define DPRINTF(...) Serial.printf(__VA_ARGS__)
+#define DBEGIN(...) Serial.begin(__VA_ARGS__)
+#else
+#define DPRINT(...)    //blank line
+#define DPRINTLN(...)  //blank line
+#define DPRINTF(...)   //blank line
+#define DBEGIN(...)    //blank line
+#endif
+// == Debug helpers END
 
 // == Screen definition START
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
@@ -32,9 +34,6 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #include <WiFi.h>
 #include <HTTPClient.h>
 
-// Fix dumb implementation
-ALLOW_ACCESS(HTTPClient, _size, int);
-
 #define PB_HOST "https://h2949706.stratoserver.net"
 #define PB_MAKE_URL(path) (PB_HOST "" path)
 
@@ -43,8 +42,11 @@ ALLOW_ACCESS(HTTPClient, _size, int);
 #define STAPSK "danielistcool"
 #endif
 
-const char* ssid = STASSID;
-const char* password = STAPSK;
+const char *ssid = STASSID;
+const char *password = STAPSK;
+
+uint8_t current_wifi_status = WL_IDLE_STATUS;
+auto_init_mutex(wifi_status_m);
 // == Internet definition END
 
 // == Queue definition START
@@ -68,64 +70,77 @@ queue_t scan_results_queue;
 //    Display & Internet Logic
 // =============================================
 
-const String& HTTP_EMPTY_RESPONSE = "";
-const String& postHTTP(String url, String body) {
+const String &HTTP_EMPTY_RESPONSE = "";
+
+int postHTTP(const char *url, char *body) {
   // Initialize http client
   HTTPClient http;
   // Accept ssl certificates without validation
   http.setInsecure();
+  // Debug message
+  DPRINTF("[HTTP] POST... calling `%s` with body `%s`\n", url, body);
   // configure target server and url
-  http.begin(url);
-  http.addHeader("Content-Type", "application/json");
-
-  // start connection and send HTTP header and body
-  int httpCode = http.POST(body);
-  ACCESS(http, _size) = -1;
-
-  // httpCode will be negative on error
-  if (httpCode > 0) {
-    // HTTP header has been send and Server response header has been handled
-    //Serial.printf("[HTTP] POST (%s with `%s`) code: %d\n", url, body, httpCode);
-
-    // file found at server
-    if (httpCode == HTTP_CODE_OK) {
-      const String& payload = http.getString();
-      return payload;
-    }
-  } else {
-    Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
-  }
-
-  http.end();
-  return HTTP_EMPTY_RESPONSE;
-}
-
-const String& getHTTP(String url) {
-  // Initialize http client
-  HTTPClient http;
-  // Accept ssl certificates without validation
-  http.setInsecure();
-  // configure target server and url
-  if(http.begin(url)) {
+  if (http.begin(url)) {
     http.addHeader("Content-Type", "application/json");
 
-    int httpCode = http.GET();
-    ACCESS(http, _size) = -1;
+    // start connection and send HTTP header and body
+    int httpCode = http.POST(body);
 
     // httpCode will be negative on error
     if (httpCode > 0) {
-      // file found at server
-      if (httpCode == HTTP_CODE_OK) {
-        const String& payload = http.getString();
-        return payload;
-      }
+      DPRINTF("[HTTP] POST... status code: %d\n", httpCode);
+      http.end();
+      return httpCode;
     } else {
-      Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
+      DPRINTF("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
     }
 
     http.end();
+  } else {
+    DPRINTLN("[HTTP] POST... failed to initialize");
   }
-  return HTTP_EMPTY_RESPONSE;
+
+  return -1;
+}
+
+int getHTTP(char *url, DynamicJsonDocument *doc) {
+  // Initialize http client
+  HTTPClient http;
+  // Debug message
+  DPRINTF("[HTTP] GET... calling `%s`\n", url);
+  // Accept ssl certificates without validation
+  http.setInsecure();
+  // configure target server and url
+  if (http.begin(url)) {
+    http.addHeader("Content-Type", "application/json");
+
+    int httpCode = http.GET();
+
+    // httpCode will be negative on error
+    if (httpCode > 0) {
+      DPRINTF("[HTTP] GET... status code: %d\n", httpCode);
+
+      // file found at server
+      if (httpCode == HTTP_CODE_OK) {
+        DeserializationError error = deserializeJson(*doc, http.getStream());
+        if (error) {
+          http.end();
+          return -1;
+        }
+      }
+
+      http.end();
+      return httpCode;
+    } else {
+      DPRINTF("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+    }
+
+    http.end();
+  } else {
+    DPRINTLN("[HTTP] GET... failed to initialize");
+  }
+
+  return -1;
 }
 
 // Unique board id from the rp2040
@@ -138,24 +153,31 @@ extern "C" {
 }
 
 void setup() {
+  // Open Serial Connection
+  DBEGIN(115200);
+
   // Initialize queues
+  DPRINTLN("[SYS] Initializing queues...");
   queue_init(&scan_queue, sizeof(scan_item_t), QUEUE_LENGTH);
   queue_init(&scan_results_queue, sizeof(scan_result_item_t), QUEUE_LENGTH);
 
-  // Open Serial Connection
-  Serial.begin(115200);
+  // Initialize mutex
+  DPRINTLN("[SYS] Initializing muextes...");
+  mutex_init(&wifi_status_m);
 
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    Serial.println("Display not found...");
+    DPRINTLN("[APP] Display not found...");
     for (;;)
       ;  // Don't proceed, loop forever
   }
 
   // Apply display settings
+  DPRINTLN("[APP] Initializing display...");
   display.setRotation(2);
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
+  display.cp437(true);
 
   // Display splash screen
   display.display();
@@ -164,24 +186,27 @@ void setup() {
   display.setCursor(0, 0);
 
   // Start display boot sequence
+  DPRINTLN("[APP] Starting boot sequence...");
   display.print("Booting.");
   display.display();
 
   // Read board unique id
-  flash_get_unique_id((uint8_t*)sensor_id);
+  flash_get_unique_id((uint8_t *)sensor_id);
   sprintf(sensor_id_str, "0x%X", sensor_id);
 
-  Serial.print("Board ID: ");
-  Serial.println(sensor_id_str);
+  DPRINTF("[SYS] Board ID: %s\n", sensor_id_str);
   display.print(".");
   display.display();
 
   // Connect to wifi
+  DPRINTF("[WIFI] Connecting to WiFi: %s\n", ssid);
   WiFi.begin(ssid, password);
   // Check for successful connection
   while (WiFi.status() != WL_CONNECTED) {
+    DPRINTF("[WIFI] WiFi failed. Current status: %d. Reconnecting...\n", WiFi.status());
     // Show WiFi failure on display
     display.clearDisplay();
+    display.setCursor(0, 0);
     display.print("WiFi failed!\nReconnecting.");
     display.display();
     // Some number of wait time
@@ -194,9 +219,11 @@ void setup() {
     display.print(".");
     display.display();
   }
+  DPRINTF("[WIFI] WiFi connected! IP: %s; Status: %d\n", WiFi.localIP().toString(), WiFi.status());
 
   // Successful boot
   display.clearDisplay();
+  display.setCursor(0, 0);
   display.println("Booted!");
   display.display();
   delay(500);
@@ -213,63 +240,86 @@ void setup() {
   display.display();
 
   // Allow users to see everything worked
-  delay(2000);
+  delay(1000);
 }
 
+#define NUM_SCAN_STATES 4
+char scan_states[NUM_SCAN_STATES] = { '/', '-', '\\', '|' };
+uint8_t scan_state = 0;
 void loop() {
+  DPRINTF("[HEAP] Free: %d; Used: %d; Total: %d\n", rp2040.getFreeHeap(), rp2040.getUsedHeap(), rp2040.getTotalHeap());
+
+  if (mutex_try_enter(&wifi_status_m, NULL)) {
+    DPRINTLN("[WIFI] Updating WiFi status in mutex...");
+    current_wifi_status = WiFi.status();
+    mutex_exit(&wifi_status_m);
+  }
+
   // Clear display
   display.clearDisplay();
   display.setCursor(0, 0);
 
   // Check if WiFi connection failed
   if (WiFi.status() != WL_CONNECTED) {
+    DPRINTF("[WIFI] Connection lost! Current status: %d. Reconnecting...\n", WiFi.status());
     display.println("Connecting WiFi...");
     display.display();
     // Try reconnecting to WiFi
     WiFi.disconnect();
     WiFi.begin(ssid, password);
+    delay(5000);
     return;
   } else {
     display.println("WiFi connected!");
   }
 
   // Waiting for next scan to submit
-  display.println("\nWaiting for scan...");
+  display.print("\nWaiting for scan ");
+  char scanStateChar = scan_states[scan_state];
+  scan_state = (scan_state + 1) % NUM_SCAN_STATES;
+  display.print(scanStateChar);
   display.display();
-
-  delay(200);
 
   // Check for next scan in queue
   if (!queue_is_empty(&scan_queue)) {
+    DPRINTLN("[APP] New scan in queue! Processing...");
+
     scan_item_t scan;
     queue_remove_blocking(&scan_queue, &scan);
 
-    String uid_str = "0x";
-
+    char uid_str[32] = "0x";
+    char *ptr = &uid_str[strlen(uid_str)];
     for (uint8_t i = 0; i < scan.uid_length; i++) {
-      uid_str += String(scan.uid[i], HEX);
+      ptr += sprintf(ptr, "%02x", scan.uid[i]);
     }
-    Serial.print("Scanned card: ");
-    Serial.println(uid_str);
+    DPRINTF("[APP] Scan card id: %s\n", uid_str);
 
     display.clearDisplay();
+    display.setCursor(0, 0);
     display.print("Card ID: ");
     display.println(uid_str);
+    display.print("Searching card.");
+    display.display();
 
-    // Lookup card for registered details
+    // Allocate json document for parsing
     DynamicJsonDocument doc(1024);
-    const String& card_lookup_payload = getHTTP(String(PB_MAKE_URL("/api/collections/cards/records")) + "?filter=(card_id='" + uid_str + "')");
-    Serial.println(card_lookup_payload);
-    DeserializationError error = deserializeJson(doc, card_lookup_payload);
+    // Display progress dot
+    display.print(".");
+    display.display();
+    // Generating url
+    char url[255];
+    snprintf(url, 255, "%s?filter=(card_id='%s')", PB_MAKE_URL("/api/collections/cards/records"), uid_str);
+    // Display progress dot
+    display.print(".");
+    display.display();
+    // Making http request and reading json response
+    int lookupHttpCode = getHTTP(url, &doc);
 
     // Test if parsing succeeds.
-    if (card_lookup_payload == HTTP_EMPTY_RESPONSE || error) {
-      Serial.print(F("deserializeJson() failed: "));
-      Serial.println(error.f_str());
-      
+    if (lookupHttpCode == -1 || lookupHttpCode != HTTP_CODE_OK) {
       display.print("\nFailed to lookup card!");
       display.display();
-      
+
       scan_result_item_t scan_result;
       scan_result.success = false;
       queue_add_blocking(&scan_results_queue, &scan_result);
@@ -277,60 +327,61 @@ void loop() {
       delay(2000);
       return;
     }
-
+    // Reading returned number of results
     long itemCount = doc["totalItems"];
-
-    if(itemCount == 0) {
-      display.print("\nUnknown card.\Please register!");
+    // If no results, card is not registered
+    if (itemCount == 0) {
+      // Display error message when no items found
+      display.print("\nUnknown card!\nPlease register!");
       display.display();
-      
+      // Submit scan result for visual response
       scan_result_item_t scan_result;
       scan_result.success = false;
       queue_add_blocking(&scan_results_queue, &scan_result);
+      // Delay to make a read the display
+      delay(2000);
       return;
     }
 
+    // Get the first item from the returned search
     JsonArray items = doc["items"].as<JsonArray>();
     JsonObject item = items[0];
-
+    // Extract card details
     String cardOwner = item["name"], realId = item["id"];
-    display.print(String("Hello ") + cardOwner);
-
-    display.print("\nSubmitting");
+    // Display card owner name
+    display.print("\nHello ");
+    display.print(cardOwner);
+    // Start submitting the scan
+    display.print("\nSubmitting.");
     display.display();
-
-    String scan_json = String("{\"sensor_id\":\"");
-    scan_json += sensor_id_str;
-    scan_json += "\",\"card_id\":\"";
-    scan_json += realId;
-    scan_json += "\"}";
-
+    // Prepare the json body
+    char scan_json[512];
+    snprintf(scan_json, 512, "{\"sensor_id\":\"%s\",\"card_id\":\"%s\"}", sensor_id_str, realId.c_str());
+    // Display progress dot
     display.print(".");
     display.display();
-
-    Serial.print("Submitting scan: ");
-    Serial.println(scan_json);
-
-    const String& payload = postHTTP(PB_MAKE_URL("/api/collections/scans/records"), scan_json);
-
+    // Make the http POST request
+    int scanSubmitHttpCode = postHTTP(PB_MAKE_URL("/api/collections/scans/records"), scan_json);
+    // Build a scan result based on the response code
     scan_result_item_t scan_result;
-    scan_result.success = (payload != HTTP_EMPTY_RESPONSE);
+    scan_result.success = (scanSubmitHttpCode == HTTP_CODE_OK);
     queue_add_blocking(&scan_results_queue, &scan_result);
-
+    // Display progress dot
     display.print(".");
     display.display();
-
+    // Display scan result on the display
     if (!scan_result.success) {
-      Serial.println(payload);
-      display.println("\nFailed to submit scan!");
+      display.println("\nFailed!");
       display.display();
     } else {
       display.println("\nScan submitted!");
       display.display();
     }
-
+    // Delay to read the message on the display
     delay(2000);
   }
+  // Base delay to avoid overloading the loop
+  delay(500);
 }
 
 // =============================================
@@ -353,14 +404,13 @@ Adafruit_NeoPixel pixels(NUM_PIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 #define PN532_IRQ 6
 #define PN532_SS 17
 
-//Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET, &Wire1);
 Adafruit_PN532 nfc(PN532_SS);
 // == PN532 definition END
 
 // == Buzzer definition START
 #include "notes.h"
 
-#define BUZZER_PIN 9 // 3
+#define BUZZER_PIN 3 // Use e.g. 9 to deactivate
 
 void playNokiaMelody() {
   const int melody[] = { NOTE_E5, NOTE_D5, NOTE_FS4, NOTE_GS4, NOTE_CS5, NOTE_B4, NOTE_D4, NOTE_E4, NOTE_B4, NOTE_A4, NOTE_CS4, NOTE_E4, NOTE_A4 };
@@ -404,9 +454,21 @@ void playScanRegistered() {
 // == Buzzer definition END
 
 void ensureWiFiConnectionWithVisual() {
-  for(uint8_t toggle = 0; WiFi.status() != WL_CONNECTED; toggle ^= 0x1) {
-    if(toggle) {
-      pixels.fill(pixels.Color(10,0,0));
+  for (uint8_t toggle = 0, status = WL_IDLE_STATUS;; toggle ^= 0x1) {
+    // Read current status
+    mutex_enter_blocking(&wifi_status_m);
+    status = current_wifi_status;
+    mutex_exit(&wifi_status_m);
+    // If connected, exit this function as connection is established
+    if (status == WL_CONNECTED) {
+      // Clear indicator before exit
+      pixels.clear();
+      pixels.show();
+      return;
+    }
+    // Toggle the visual indicator
+    if (toggle) {
+      pixels.fill(pixels.Color(10, 0, 0));
       pixels.show();
     } else {
       pixels.clear();
@@ -417,38 +479,34 @@ void ensureWiFiConnectionWithVisual() {
 }
 
 void setup1() {
-  // NOTE: Serial will be initialized by core0
-  Serial.begin(115200);
+  // Initialize serial
+  DBEGIN(115200);
 
   // Initialize pixels
   pixels.begin();
   pixels.clear();
   // Initialize nfc
   nfc.begin();
-
+  // Delay for bus intialization
   delay(1000);
 
+  // Extract nfc chip data
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (!versiondata) {
-    Serial.print("Didn't find PN53x board");
+    DPRINTLN("[APP] Didn't find PN53x board");
     while (1)
       ;  // halt
   }
 
   // Got ok data, print it out!
-  Serial.print("Found chip PN5");
-  Serial.println((versiondata >> 24) & 0xFF, HEX);
-  Serial.print("Firmware ver. ");
-  Serial.print((versiondata >> 16) & 0xFF, DEC);
-  Serial.print('.');
-  Serial.println((versiondata >> 8) & 0xFF, DEC);
+  DPRINTF("[APP] FOund chip PN5%02X, Firmware: %02d.%02d\n", (versiondata >> 24) & 0xFF, (versiondata >> 16) & 0xFF, (versiondata >> 8) & 0xFF);
 
   // Set the max number of retry attempts to read from a card
   // This prevents us from waiting forever for a card, which is
   // the default behaviour of the PN532.
   nfc.setPassiveActivationRetries(0xFF);
 
-  Serial.println("Waiting for an ISO14443A card");
+  DPRINTLN("Waiting for an ISO14443A card");
 
   //playNokiaMelody();
 
@@ -456,7 +514,7 @@ void setup1() {
   ensureWiFiConnectionWithVisual();
 }
 
-uint32_t crc32b(const char* str) {
+uint32_t crc32b(const char *str) {
   // Source: https://stackoverflow.com/a/21001712
   unsigned int byte, crc, mask;
   int i = 0, j;
@@ -473,16 +531,17 @@ uint32_t crc32b(const char* str) {
   return ~crc;
 }
 
-void visualizeScan(scan_item_t* scan) {
+void visualizeScan(scan_item_t *scan) {
   // Sound for the user that the scan has been registered
   playScanRegistered();
 
   // Generate hash from uid
-  String uid_str = "0x";
+  char uid_str[32] = "0x";
+  char *ptr = &uid_str[strlen(uid_str)];
   for (uint8_t i = 0; i < scan->uid_length; i++) {
-    uid_str += String(scan->uid[i], HEX);
+    ptr += sprintf(ptr, "%02x", scan->uid[i]);
   }
-  uint32_t hash = crc32b(uid_str.c_str());
+  uint32_t hash = crc32b(uid_str);
 
   // Visualize each byte as a color in the ring
   for (uint8_t i = 0; i < 4; i++) {
@@ -498,15 +557,17 @@ void visualizeScan(scan_item_t* scan) {
   }
 }
 
-uint8_t last_uid[7] = {0,0,0,0,0,0,0};
+uint8_t last_uid[7] = { 0, 0, 0, 0, 0, 0, 0 };
 unsigned long last_scan = 0;
 
 void loop1() {
+  // Ensure there is a WiFi connection before we accept more scans
   ensureWiFiConnectionWithVisual();
-
+  // Display a light blue color on the Ring for "ready"
   pixels.fill(pixels.Color(0, 0, 10));
   pixels.show();
 
+  // Status variables for our next scan
   boolean success;
   scan_item_t scan;
   memset(scan.uid, 7, 0);
@@ -518,9 +579,9 @@ void loop1() {
 
   if (success) {
     // Check if last uid equals newly scanned and last scan is not older than 1 minute
-    if(memcmp(last_uid, scan.uid, 7) == 0 && (millis() - last_scan) < 60000) {
+    if (memcmp(last_uid, scan.uid, 7) == 0 && (millis() - last_scan) < 60000) {
       last_scan = millis();
-      Serial.println("Card already submitted");
+      DPRINTLN("[APP] Card already submitted");
       return;
     }
     // Push to queue
@@ -547,6 +608,7 @@ void loop1() {
         // Allow direct rescan
         memset(last_uid, 0, 7);
         last_scan = 0;
+        delay(1000);
       } else {
         pixels.fill(pixels.Color(0, 50, 0));
         pixels.show();
@@ -556,7 +618,6 @@ void loop1() {
 
     delay(1000);
   } else {
-    // PN532 probably timed out waiting for a card
-    Serial.println("Timed out waiting for a card");
+    DPRINTLN("[APP] Card timeout! New reading...");
   }
 }
