@@ -91,6 +91,7 @@
         const form_lesson_start = document.getElementById("lesson_start").value;
         const form_raum = document.getElementById("raum").value;
 
+
         const dayjs_startTime = dayjs(`${form_date} ${form_startTime}`).utc().format('YYYY-MM-DD hh:mm:00');
         const dayjs_endTime = dayjs(`${form_date} ${form_endTime}`).utc().format('YYYY-MM-DD hh:mm:00');
         const dayjs_lesson_start = dayjs(`${form_date} ${form_lesson_start}`);
