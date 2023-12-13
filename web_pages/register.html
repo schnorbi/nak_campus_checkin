@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Register</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header>
+        <h1>Register for NAK Campus Checkin</h1>
+    </header>
+
+    <form id="register-form">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" required>
+            
+        <label for="matrikelnummer">Matrikelnummer:</label>
+        <input type="text" id="matrikelnummer" name="matrikelnummer" required>
+
+        <label for="card-id">Card-ID:</label>
+        <input type="text" id="card-id" name="card-id" required readonly>
+
+        <button id="register_submitButton" type="submit">Submit</button>
+    </form>
+
+    <script src="https://unpkg.com/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/duration.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/relativeTime.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/party-js@latest/bundle/party.min.js"></script>
+
+    <script type="module">
+        import PocketBase from 'https://unpkg.com/pocketbase@0.19.0/dist/pocketbase.es.mjs'
+
+        const pb = new PocketBase('https://h2949706.stratoserver.net');
+
+        const form_cardid = document.getElementById("card-id");
+        const form_name = document.getElementById("name");
+        const form_matr_nr = document.getElementById("matrikelnummer");
+        const submitButton = document.getElementById("register_submitButton");
+
+        pb.collection('unregistered_cards').subscribe('*', function (e) {
+
+            if (e.action !== "create") return;
+        
+            form_cardid.value = e.record.card_id;
+        });
+
+        submitButton.addEventListener("click", async function(event){
+        event.preventDefault();
+
+        if (form_name.value == '' || form_matr_nr.value == '' || form_cardid.value === '') return;
+
+        try { 
+            const check_card = await pb.collection('cards').getFullList({filter: `matr_nr = "${form_matr_nr.value}" && card_id = "${form_cardid.value}"`});
+            console.log(check_card);
+
+            if (check_card == []){
+                const data = {
+                    "name": form_name.value,
+                    "matr_nr": form_matr_nr.value,
+                    "card_id": form_cardid.value
+                };
+                const record = await pb.collection('cards').create(data);
+            }
+        } catch (e){
+            console.error(e);
+        }
+        form_name.value = '';
+        form_cardid.value = '';
+        form_matr_nr.value = '';
+
+      })
+
+    </script>
+</body>
+
+</html>

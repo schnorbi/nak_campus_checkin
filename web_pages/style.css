@@ -97,3 +97,10 @@ nav a {
 #input-form button {
   margin-top: 10px;
 }
+
+#register-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 40px;
+  align-items: center;
+}
