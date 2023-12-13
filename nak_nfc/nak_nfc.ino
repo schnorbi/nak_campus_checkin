@@ -219,7 +219,7 @@ void setup() {
     display.print(".");
     display.display();
   }
-  DPRINTF("[WIFI] WiFi connected! IP: %s; Status: %d\n", WiFi.localIP().toString(), WiFi.status());
+  DPRINTF("[WIFI] WiFi connected! IP: %s; Status: %d\n", WiFi.localIP().toString().c_str(), WiFi.status());
 
   // Successful boot
   display.clearDisplay();
@@ -499,7 +499,7 @@ void setup1() {
   }
 
   // Got ok data, print it out!
-  DPRINTF("[APP] FOund chip PN5%02X, Firmware: %02d.%02d\n", (versiondata >> 24) & 0xFF, (versiondata >> 16) & 0xFF, (versiondata >> 8) & 0xFF);
+  DPRINTF("[APP] Found chip PN5%02X, Firmware: %02d.%02d\n", (versiondata >> 24) & 0xFF, (versiondata >> 16) & 0xFF, (versiondata >> 8) & 0xFF);
 
   // Set the max number of retry attempts to read from a card
   // This prevents us from waiting forever for a card, which is
