@@ -59,7 +59,7 @@
             const check_card = await pb.collection('cards').getFullList({filter: `matr_nr = "${form_matr_nr.value}" && card_id = "${form_cardid.value}"`});
             console.log(check_card);
 
-            if (check_card == []){
+            if (check_card.length === 0){
                 const data = {
                     "name": form_name.value,
                     "matr_nr": form_matr_nr.value,
