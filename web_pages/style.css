@@ -90,7 +90,8 @@ nav a {
 }
 
 #input-form select {
-  width: 200px; /* Anpassen der Breite nach Bedarf */
+  width: 200px;
+  /* Anpassen der Breite nach Bedarf */
   box-sizing: border-box;
 }
 
@@ -98,9 +99,21 @@ nav a {
   margin-top: 10px;
 }
 
-#register-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 40px;
-  align-items: center;
+.register-form-inputs {
+  margin: 25px 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+#error-message {
+  box-sizing: border-box;
+  display: block;
+}
+
+#error-message span {
+  padding: 10px;
+  background-color: red;
+  font-weight: bold;
+  margin: 20px 0;
 }

@@ -15,22 +15,31 @@
         <h1>Register for NAK Campus Checkin</h1>
     </header>
 
+    <div id="error-message"></div>
     <form id="register-form">
-        <label for="name">Name:</label>
-        <input type="text" id="name" name="name" required>
-            
-        <label for="matrikelnummer">Matrikelnummer:</label>
-        <input type="text" id="matrikelnummer" name="matrikelnummer" required>
+        <div class="register-form-inputs">
+            <div>
+                <label for="name">Name:</label>
+                <input type="text" id="name" name="name" required>
+            </div>
 
-        <label for="card-id">Card-ID:</label>
-        <input type="text" id="card-id" name="card-id" required readonly>
+            <div>
+                <label for="matrikelnummer">Matrikelnummer:</label>
+                <input type="text" id="matrikelnummer" name="matrikelnummer" required>
 
-        <button id="register_submitButton" type="submit">Submit</button>
+            </div>
+
+            <div>
+                <label for="card-id">Card-ID:</label>
+                <input type="text" id="card-id" name="card-id" required disabled>
+            </div>
+        </div>
+
+        <div style="text-align: center;">
+            <button id="register_submitButton" type="submit">Submit</button>
+        </div>
     </form>
 
-    <script src="https://unpkg.com/dayjs@1/dayjs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/duration.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/relativeTime.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/party-js@latest/bundle/party.min.js"></script>
 
     <script type="module">
@@ -38,43 +47,88 @@
 
         const pb = new PocketBase('https://h2949706.stratoserver.net');
 
+        const form = document.getElementById("register-form")
         const form_cardid = document.getElementById("card-id");
         const form_name = document.getElementById("name");
         const form_matr_nr = document.getElementById("matrikelnummer");
+        const error_msg = document.getElementById("error-message")
         const submitButton = document.getElementById("register_submitButton");
 
         pb.collection('unregistered_cards').subscribe('*', function (e) {
 
             if (e.action !== "create") return;
-        
+
             form_cardid.value = e.record.card_id;
+            setTimeout(() => {
+                party.confetti(form_cardid)
+            }, 100)
         });
 
-        submitButton.addEventListener("click", async function(event){
-        event.preventDefault();
+        var errorMessageClearTimeout = undefined;
 
-        if (form_name.value == '' || form_matr_nr.value == '' || form_cardid.value === '') return;
-
-        try { 
-            const check_card = await pb.collection('cards').getFullList({filter: `matr_nr = "${form_matr_nr.value}" && card_id = "${form_cardid.value}"`});
-            console.log(check_card);
-
-            if (check_card.length === 0){
-                const data = {
-                    "name": form_name.value,
-                    "matr_nr": form_matr_nr.value,
-                    "card_id": form_cardid.value
-                };
-                const record = await pb.collection('cards').create(data);
-            }
-        } catch (e){
-            console.error(e);
+        function displayErrorMessage(message) {
+            error_msg.innerHTML = `<span>${message}</span>`
+            errorMessageClearTimeout = setTimeout(clearErrorMessage, 5000)
         }
-        form_name.value = '';
-        form_cardid.value = '';
-        form_matr_nr.value = '';
 
-      })
+        function clearErrorMessage() {
+            error_msg.innerHTML = ''
+            clearTimeout(errorMessageClearTimeout)
+        }
+
+        function onSubmitSuccess() {
+            // Play confetti animation
+            setTimeout(() => {
+                party.confetti(form)
+            }, 100)
+        }
+
+        form.onsubmit = async function (event) {
+            event.preventDefault();
+
+            clearErrorMessage();
+
+            const submit_name = form_name.value,
+                submit_matr_nr = form_matr_nr.value,
+                submit_cardid = form_cardid.value;
+
+            if (submit_name == '' || submit_matr_nr == '') {
+                return displayErrorMessage('Formular vollständig ausfüllen!');
+            }
+            if(submit_cardid === '') {
+                return displayErrorMessage('Zuerst Karte scannen!')
+            }
+
+            submitButton.disabled = true;
+            form.style.opacity = 0.7;
+
+            try {
+                const check_card = await pb.collection('cards').getFullList({ filter: `matr_nr = "${submit_matr_nr}" && card_id = "${submit_cardid}"` });
+                console.log('api response', check_card);
+
+                if (check_card.length === 0) {
+                    const data = {
+                        "name": form_name.value,
+                        "matr_nr": form_matr_nr.value,
+                        "card_id": form_cardid.value
+                    };
+                    const record = await pb.collection('cards').create(data);
+                    onSubmitSuccess();
+                } else {
+                    displayErrorMessage('Karte bereits für dich registriert!')
+                }
+            } catch (e) {
+                console.error(e);
+                displayErrorMessage('Fehler beim Speichern!');
+            }
+
+            form_name.value = '';
+            form_cardid.value = '';
+            form_matr_nr.value = '';
+
+            submitButton.disabled = false;
+            form.style.opacity = 1;
+        }
 
     </script>
 </body>

@@ -1,134 +1,134 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Student Checkin</title>
 
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css"
-    />
-    <link rel="stylesheet" href="style.css">
-  </head>
-  <body>
-    <header>
-      <h1>NAK Campus Checkin</h1>
-      <hr>
-      <nav>
-          <a href="realtime_scans.html">Realtime Scans</a>
-          <span style="flex: auto;flex-grow: 1;"></span>
-          <a href="https://h2949706.stratoserver.net/_" target="_blank">Admin</a>
-      </nav>
-      <hr>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Checkin</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css" />
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <header>
+    <h1>NAK Campus Checkin</h1>
+    <hr>
+    <nav>
+      <a href="realtime_scans.html">Realtime Scans</a>
+      <span style="flex: auto;flex-grow: 1;"></span>
+      <a href="https://h2949706.stratoserver.net/_" target="_blank">Admin</a>
+    </nav>
+    <hr>
   </header>
 
-    <!-- Form for input -->
-    <form id="input-form">
-      <label for="date">Abfragedatum:</label>
-      <input type="date" id="date">
+  <!-- Form for input -->
+  <form id="input-form">
+    <label for="date">Abfragedatum:</label>
+    <input type="date" id="date">
 
-      <label for="startTime">Abfragestart:</label>
-      <input type="time" id="startTime" name="startTime">
+    <label for="startTime">Abfragestart:</label>
+    <input type="time" id="startTime" name="startTime">
 
-      <label for="endTime">Abfrageende:</label>
-      <input type="time" id="endTime" name="endTime">
+    <label for="endTime">Abfrageende:</label>
+    <input type="time" id="endTime" name="endTime">
 
-      <label for="endTime">Vorlesungsstart:</label>
-      <input type="time" id="lesson_start" name="lesson_start">
+    <label for="endTime">Vorlesungsstart:</label>
+    <input type="time" id="lesson_start" name="lesson_start">
 
-      <label for="raum">Raumnummer:</label>
-      <select id="raum" name="raum">
-      </select>
+    <label for="raum">Raumnummer:</label>
+    <select id="raum" name="raum">
+    </select>
 
-      <button id="submitButton">Submit</button>
+    <button id="submitButton">Submit</button>
 
-    </form>
+  </form>
 
-    <table id="scan-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Matrikelnummer</th>
-          <th>Checkin Time</th>
-          <th>Verspätung in Minuten</th>
-        </tr>
-      </thead>
-      <tbody id="scan-table-list"></tbody>
-    </table>
-
-    <template id="scan-template">
+  <table id="scan-table">
+    <thead>
       <tr>
-        <td class="name"></td>
-        <td class="matr_nr"></td>
-        <td class="checkin_time"></td>
-        <td class="lateness"></td>
+        <th>Name</th>
+        <th>Matrikelnummer</th>
+        <th>Checkin Time</th>
+        <th>Verspätung in Minuten</th>
       </tr>
-    </template>
+    </thead>
+    <tbody id="scan-table-list"></tbody>
+  </table>
 
-    <script src="https://unpkg.com/dayjs@1/dayjs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/utc.js"></script>
+  <template id="scan-template">
+    <tr>
+      <td class="name"></td>
+      <td class="matr_nr"></td>
+      <td class="checkin_time"></td>
+      <td class="lateness"></td>
+    </tr>
+  </template>
 
-    <script type="module">
-      import PocketBase from "https://unpkg.com/pocketbase@0.19.0/dist/pocketbase.es.mjs";
+  <script src="https://unpkg.com/dayjs@1/dayjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/utc.js"></script>
 
-      // Import dayjs extensions
-      dayjs.extend(window.dayjs_plugin_utc);
-      
-      const pb = new PocketBase("https://h2949706.stratoserver.net");
+  <script type="module">
+    import PocketBase from "https://unpkg.com/pocketbase@0.19.0/dist/pocketbase.es.mjs";
 
-      const scanTemplate = document.getElementById("scan-template"),
-        scanList = document.getElementById("scan-table-list"),
-        submitButton = document.getElementById("submitButton");
+    // Import dayjs extensions
+    dayjs.extend(window.dayjs_plugin_utc);
 
-      submitButton.addEventListener("click", async function(event){
-        event.preventDefault();
-        scanList.innerHTML = '';
+    const pb = new PocketBase("https://h2949706.stratoserver.net");
 
-        const form_date = document.getElementById("date").value;
-        const form_startTime = document.getElementById("startTime").value;
-        const form_endTime = document.getElementById("endTime").value;
-        const form_lesson_start = document.getElementById("lesson_start").value;
-        const form_raum = document.getElementById("raum").value;
+    const scanTemplate = document.getElementById("scan-template"),
+      scanList = document.getElementById("scan-table-list"),
+      submitButton = document.getElementById("submitButton");
 
+    submitButton.addEventListener("click", async function (event) {
+      event.preventDefault();
+      scanList.innerHTML = '';
 
-        const dayjs_startTime = dayjs(`${form_date} ${form_startTime}`).utc().format('YYYY-MM-DD hh:mm:00');
-        const dayjs_endTime = dayjs(`${form_date} ${form_endTime}`).utc().format('YYYY-MM-DD hh:mm:00');
-        const dayjs_lesson_start = dayjs(`${form_date} ${form_lesson_start}`);
+      const form_date = document.getElementById("date").value;
+      const form_startTime = document.getElementById("startTime").value;
+      const form_endTime = document.getElementById("endTime").value;
+      const form_lesson_start = document.getElementById("lesson_start").value;
+      const form_raum = document.getElementById("raum").value;
 
 
-        try {
-            const records = await pb
-              .collection("card_scans")
-              .getFullList({filter: `created >= "${dayjs_startTime}" && created <= "${dayjs_endTime}" && raum = "${form_raum}"`});
-  
-            records.forEach((record) => {
-              const scan = scanTemplate.content.cloneNode(true);
-              scan.querySelector(".name").innerText = record.name;
-              scan.querySelector(".matr_nr").innerText = record.matr_nr;
-              const dayjs_checkin_time = dayjs(record.created).second(0);
-              scan.querySelector(".checkin_time").innerText = dayjs_checkin_time.format('hh:mm');
-              scan.querySelector(".lateness").innerText = dayjs_checkin_time.diff(dayjs_lesson_start, 'minute');
-              scanList.appendChild(scan);
-            });
-          } catch (e) {
-            console.error(e);
-          }
-      })
+      const dayjs_startTime = dayjs(`${form_date} ${form_startTime}`).utc().format('YYYY-MM-DD hh:mm:00');
+      const dayjs_endTime = dayjs(`${form_date} ${form_endTime}`).utc().format('YYYY-MM-DD hh:mm:00');
+      const dayjs_lesson_start = dayjs(`${form_date} ${form_lesson_start}`);
+
 
       try {
-          const records_scanner = await pb.collection('scanners').getFullList({fields: "raum"});
-          const dropdown = document.getElementById("raum");
-          records_scanner.forEach((record_scanner) => {
-            const option = document.createElement("option");
-            option.value = record_scanner.raum;
-            option.text = record_scanner.raum;
-            dropdown.appendChild(option);
-          });
-      } catch (e){
+        const records = await pb
+          .collection("card_scans")
+          .getFullList({ filter: `created >= "${dayjs_startTime}" && created <= "${dayjs_endTime}" && raum = "${form_raum}"` });
+
+        records.forEach((record) => {
+          const scan = scanTemplate.content.cloneNode(true);
+          scan.querySelector(".name").innerText = record.name;
+          scan.querySelector(".matr_nr").innerText = record.matr_nr;
+          const dayjs_checkin_time = dayjs(record.created).second(0);
+          scan.querySelector(".checkin_time").innerText = dayjs_checkin_time.format('hh:mm');
+          scan.querySelector(".lateness").innerText = dayjs_checkin_time.diff(dayjs_lesson_start, 'minute');
+          scanList.appendChild(scan);
+        });
+      } catch (e) {
         console.error(e);
       }
-      
-    </script>
-  </body>
+    })
+
+    try {
+      const records_scanner = await pb.collection('scanners').getFullList({ fields: "raum" });
+      const dropdown = document.getElementById("raum");
+      records_scanner.forEach((record_scanner) => {
+        const option = document.createElement("option");
+        option.value = record_scanner.raum;
+        option.text = record_scanner.raum;
+        dropdown.appendChild(option);
+      });
+    } catch (e) {
+      console.error(e);
+    }
+
+  </script>
+</body>
+
 </html>

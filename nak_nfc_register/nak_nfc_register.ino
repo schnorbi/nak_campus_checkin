@@ -327,8 +327,8 @@ void loop1() {
   success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &(scan.uid[0]), &(scan.uid_length));
 
   if (success) {
-    // Check if last uid equals newly scanned and last scan is not older than 1 minute
-    if (memcmp(last_uid, scan.uid, 7) == 0 && (millis() - last_scan) < 60000) {
+    // Check if last uid equals newly scanned and last scan is not older than 10 seconds
+    if (memcmp(last_uid, scan.uid, 7) == 0 && (millis() - last_scan) < 10000) {
       last_scan = millis();
       DPRINTLN("[APP] Card already submitted");
       return;
