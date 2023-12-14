@@ -104,7 +104,6 @@
 
             try {
                 const check_card = await pb.collection('cards').getFullList({ filter: `matr_nr = "${submit_matr_nr}" && card_id = "${submit_cardid}"` });
-                console.log('api response', check_card);
 
                 if (check_card.length === 0) {
                     const data = {
