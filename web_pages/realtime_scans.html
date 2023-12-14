@@ -32,6 +32,9 @@
 
     <template id="scan-template">
         <div class="scan-item">
+            <div class="scan-item-header">
+                <h3 class="name"></h3>
+            </div>
             <div class="scan-item-content">
                 <pre><code class="text"></code></pre>
             </div>
@@ -58,7 +61,7 @@
         const scanTemplate = document.getElementById('scan-template'),
             scanList = document.getElementById('scan-list')
 
-        pb.collection('scans').subscribe('*', function (e) {
+        pb.collection('scans').subscribe('*', async function (e) {
             // We only care about creation events
             if (e.action !== "create") return;
             // Clone template
@@ -66,13 +69,26 @@
 
             // Extract elements we will be working with
             const scanItem = scan.querySelector('.scan-item'),
-                scanItemTimestamp = scanItem.querySelector('.time')
+                scanItemTimestamp = scanItem.querySelector('.time'),
+                scanItemName = scanItem.querySelector('.name')
 
             // Assign id
             scanItem.id = e.record['id']
 
             // Update text from event
             scanItem.querySelector('.text').innerText = JSON.stringify(e.record, null, 2)
+
+            // Extract card owner details
+            try {
+                const fullScanDetails = await pb.collection('scans').getOne(e.record['id'], {
+                    expand: 'card_id',
+                });
+
+                scanItemName.innerHTML = `Wilkommen <u>${fullScanDetails.expand['card_id']['name']}</u> <i>(${fullScanDetails.expand['card_id']['matr_nr']})</i>!`
+            } catch(e) {
+                console.error(e)
+                scanItemName.innerHTML = `<u>Unknown</u> card`
+            }
 
             // Create time element updater
             const timestampUpdater = () => {
